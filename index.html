@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Color Tool: Hex, RGB, HSL, CMYK Converter & Palette Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        html, body {
+            min-height: 100vh;
+            margin: 0;
+            transition: background-color 0.4s ease-in-out;
+            font-family: 'Inter', sans-serif;
+        }
+        .color-container {
+            padding: 2rem 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+        .input-card, .content-card {
+            background-color: #ffffff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+            border: 1px solid #f0f0f0;
+            width: 100%;
+            max-width: 480px;
+            transition: all 0.2s ease-out;
+        }
+        @media (min-width: 1024px) {
+            .grid-item-max-w {
+                max-width: none;
+            }
+        }
+        .large-preview {
+            height: 120px;
+            border-radius: 0.75rem;
+            margin-top: 1rem;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+            transition: background-color 0.4s ease;
+        }
+        .code-display {
+            font-family: 'SF Mono', 'Consolas', monospace;
+            white-space: nowrap;
+        }
+        .copy-btn {
+            background-color: #f3f4f6;
+            padding: 0.35rem 0.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.15s;
+        }
+        .copy-btn:hover {
+            background-color: #e5e7eb;
+        }
+        .color-collection-scroll::-webkit-scrollbar {
+            height: 6px;
+        }
+        .color-collection-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        #notificationToast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translate(-50%, 100vh);
+            z-index: 1000;
+            transition: transform 0.4s ease-out;
+        }
+        #notificationToast.show {
+            transform: translate(-50%, 0);
+        }
+    </style>
+</head>
+<body id="body" class="bg-gray-50">
+
+    <div id="app" class="color-container">
+
+        <header class="w-full max-w-4xl px-4 py-4 mb-4">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                <h1 class="text-3xl font-extrabold text-gray-900 flex items-center">
+                    <span class="text-indigo-600 mr-2">🎨</span> Pro Color Tool
+                </h1>
+                <nav class="mt-2 sm:mt-0 space-x-4 text-sm font-medium text-gray-500">
+                    <a href="#tool-section" class="hover:text-indigo-600 transition">Home</a>
+                    <a href="#conversions" class="hover:text-indigo-600 transition">Conversions</a>
+                    <a href="#generator-section" class="hover:text-indigo-600 transition">Palettes</a>
+                    <a href="#privacy-policy-section" class="hover:text-indigo-600 transition">Privacy Policy</a>
+                </nav>
+            </div>
+        </header>
+
+        <section id="tool-section" class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 lg:gap-8">
+            
+            <div class="input-card p-6 mb-8 lg:mb-0 grid-item-max-w">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Primary Color Input</h2>
+                
+                <div id="colorPreview" class="large-preview mb-4" style="background-color: #3498DB;"></div>
+
+                <div class="flex flex-col space-y-4">
+                    
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 transform -translate-y-1/2 text-xl font-mono text-gray-400">#</span>
+                        <input
+                            type="text"
+                            id="hexInput"
+                            maxlength="6"
+                            placeholder="e.g. 3498DB"
+                            class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-lg font-mono tracking-wider outline-none transition duration-150"
+                            oninput="updateColorFromInput(this.value)"
+                        >
+                    </div>
+                    
+                    <label class="flex items-center justify-center p-3 rounded-lg bg-indigo-500 text-white font-semibold cursor-pointer hover:bg-indigo-600 transition duration-200">
+                        <input type="color" id="colorPicker" class="w-0 h-0 opacity-0" oninput="updateColorFromPicker(this.value)">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        Pick Color Visually
+                    </label>
+
+                    <div id="messageContainer" class="h-6 text-center text-sm"></div>
+                </div>
+            </div>
+
+            <div id="conversions" class="input-card p-6 grid-item-max-w">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Conversion Results</h2>
+                <div id="conversionResults" class="space-y-3">
+                </div>
+            </div>
+        </section>
+
+        <section id="generator-section" class="w-full max-w-4xl mt-8">
+            <div class="content-card p-6 max-w-none w-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Shades & Tints</h2>
+                <p class="text-sm text-gray-500 mb-6">Generated by adjusting the Lightness (L) value of the HSL color model.</p>
+                
+                <h3 class="font-semibold text-gray-700 mb-3">Tints (Lighter)</h3>
+                <div id="tintsContainer" class="flex flex-row space-x-1 overflow-x-auto pb-4 color-collection-scroll">
+                </div>
+
+                <h3 class="font-semibold text-gray-700 mt-6 mb-3">Shades (Darker)</h3>
+                <div id="shadesContainer" class="flex flex-row space-x-1 overflow-x-auto pb-4 color-collection-scroll">
+                </div>
+            </div>
+        </section>
+
+        <section class="w-full max-w-4xl mt-8">
+            <div class="content-card p-6 max-w-none w-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Color Palette Generator</h2>
+                <p class="text-sm text-gray-500 mb-6">Automatically generated palettes based on color theory. [Image of a color wheel showing complementary, analogous, and triadic color harmonies]</p>
+                
+                <div id="palettesContainer" class="space-y-8">
+                </div>
+            </div>
+        </section>
+
+        <section class="w-full max-w-4xl mt-8">
+            <div class="content-card p-6 max-w-none w-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Popular Color Collections</h2>
+                <p class="text-sm text-gray-500 mb-6">Curated palettes for common design needs. Click a color to set it as the primary input.</p>
+
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">Pastel Colors</h3>
+                        <div class="flex flex-row space-x-2 overflow-x-auto pb-4 color-collection-scroll">
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #AEC6CF;" data-hex="aec6cf" title="#AEC6CF" onclick="updateColorFromInput('aec6cf')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #B39EB5;" data-hex="b39eb5" title="#B39EB5" onclick="updateColorFromInput('b39eb5')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #F8B88B;" data-hex="f8b88b" title="#F8B88B" onclick="updateColorFromInput('f8b88b')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #FF6961;" data-hex="ff6961" title="#FF6961" onclick="updateColorFromInput('ff6961')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #FDFD96;" data-hex="fdfd96" title="#FDFD96" onclick="updateColorFromInput('fdfd96')"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">Dark Mode Colors</h3>
+                        <div class="flex flex-row space-x-2 overflow-x-auto pb-4 color-collection-scroll">
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #121212;" data-hex="121212" title="#121212" onclick="updateColorFromInput('121212')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #1C1C1E;" data-hex="1c1c1e" title="#1C1C1E" onclick="updateColorFromInput('1c1c1e')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #2C2C2E;" data-hex="2c2c2e" title="#2C2C2E" onclick="updateColorFromInput('2c2c2e')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #5856D6;" data-hex="5856d6" title="#5856D6" onclick="updateColorFromInput('5856d6')"></div>
+                            <div class="flex-shrink-0 swatch w-10 h-10 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105" style="background-color: #34C759;" data-hex="34c759" title="#34C759" onclick="updateColorFromInput('34c759')"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section id="privacy-policy-section" class="w-full max-w-4xl mt-8 mb-12">
+            <div class="content-card p-6 max-w-none w-full">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Privacy Policy & Information</h2>
+                <div class="space-y-6 text-gray-700">
+                    
+                    <h3 class="font-semibold text-lg text-indigo-700">Privacy Policy</h3>
+                    <p class="text-sm leading-relaxed">
+                        This color conversion tool is designed to be privacy-friendly. **No personal data is collected, stored, or transmitted** during your use of the color converter or palette generator. All color calculations and operations—including Hex to RGB, HSL, and CMYK conversions, and palette generation—are performed directly within your browser (client-side) using JavaScript.
+                    </p>
+                    <p class="text-sm leading-relaxed">
+                        **Data Handling:** Your color inputs are temporary and are not logged or stored persistently. We do not use cookies, external trackers, or server-side analytics.
+                    </p>
+                    <p class="text-sm leading-relaxed">
+                        **External Resources:** This application only loads necessary, non-tracking scripts for styling (Tailwind CSS) and functionality (JavaScript).
+                    </p>
+
+                    <h3 class="font-semibold text-lg text-indigo-700 mt-6 border-t pt-4">Educational Content: Hex to RGB Converter Explained</h3>
+                    <p class="text-sm leading-relaxed">
+                        A Hex color code is a six-digit, three-byte hexadecimal number used in HTML, CSS, and other computing applications to represent colors. The three bytes represent the intensity of red, green, and blue light components, respectively. Each byte ranges from `00` (lowest intensity) to `FF` (highest intensity). This tool provides an instant **Hex to RGB converter**, translating the three hexadecimal pairs into decimal values for Red, Green, and Blue, making it an essential **online color picker** utility.
+                    </p>
+
+                    <h3 class="font-semibold text-lg text-indigo-700 mt-6">The Meaning of HSL: Hue, Saturation, Lightness</h3>
+                    <p class="text-sm leading-relaxed">
+                        HSL stands for Hue, Saturation, and Lightness. It's an alternative, more intuitive way to describe colors than RGB or Hex. **Hue** (H, 0-360°) defines the color's shade (e.g., 0° is red, 120° is green, 240° is blue). **Saturation** (S, 0-100%) defines the color's purity (0% is grayscale, 100% is the full color). **Lightness** (L, 0-100%) defines how bright the color is (0% is black, 100% is white, 50% is 'normal' color). This **free palette generator** relies heavily on HSL to accurately calculate harmonious color schemes.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <footer class="w-full max-w-4xl border-t pt-6 pb-12 text-center text-sm text-gray-500 space-x-4">
+            <a href="#tool-section" class="hover:text-indigo-600">Home</a>
+            <a href="#" class="hover:text-indigo-600">Contact</a>
+            <a href="#privacy-policy-section" class="hover:text-indigo-600">Privacy Policy</a>
+            <a href="#" class="hover:text-indigo-600">Terms of Service</a>
+            <p class="mt-4">&copy; 2025 Pro Color Tool. All rights reserved.</p>
+        </footer>
+
+    </div>
+
+    <div id="notificationToast" class="px-6 py-3 bg-gray-900 text-white text-sm rounded-lg shadow-xl flex items-center space-x-2">
+        <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        const body = document.getElementById('body');
+        const hexInput = document.getElementById('hexInput');
+        const colorPreview = document.getElementById('colorPreview');
+        const conversionResults = document.getElementById('conversionResults');
+        const messageContainer = document.getElementById('messageContainer');
+        const tintsContainer = document.getElementById('tintsContainer');
+        const shadesContainer = document.getElementById('shadesContainer');
+        const palettesContainer = document.getElementById('palettesContainer');
+        const notificationToast = document.getElementById('notificationToast');
+        const toastMessage = document.getElementById('toastMessage');
+
+        const DEFAULT_COLOR = '#3498DB';
+        let toastTimeout;
+
+        function copyCode(text, messageTemplate) {
+            const cleanText = text.trim();
+            const tempInput = document.createElement('textarea');
+            tempInput.value = cleanText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+
+            toastMessage.textContent = messageTemplate.replace('{code}', cleanText);
+            notificationToast.classList.add('show');
+
+            toastTimeout = setTimeout(() => {
+                notificationToast.classList.remove('show');
+            }, 2000);
+        }
+
+        function rgbToHex(r, g, b) {
+            const componentToHex = (c) => {
+                const hex = c.toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            };
+            return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+        }
+
+        function hexToRgb(hex) {
+            const value = hex.replace('#', '');
+            const result = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(value);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 0, g: 0, b: 0 };
+        }
+
+        function rgbToHsl(r, g, b) {
+            r /= 255; g /= 255; b /= 255;
+            let max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+
+            if (max === min) {
+                h = s = 0;
+            } else {
+                let d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                switch (max) {
+                    case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                    case g: h = (b - r) / d + 2; break;
+                    case b: h = (r - g) / d + 4; break;
+                }
+                h /= 6;
+            }
+            return {
+                h: Math.round(h * 360),
+                s: Math.round(s * 100),
+                l: Math.round(l * 100)
+            };
+        }
+
+        function hslToRgb(h, s, l) {
+            h /= 360; s /= 100; l /= 100;
+            let r, g, b;
+
+            if (s === 0) {
+                r = g = b = l;
+            } else {
+                const hue2rgb = (p, q, t) => {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1 / 6) return p + (q - p) * 6 * t;
+                    if (t < 1 / 2) return q;
+                    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                    return p;
+                };
+
+                let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                let p = 2 * l - q;
+                r = hue2rgb(p, q, h + 1 / 3);
+                g = hue2rgb(p, q, h);
+                b = hue2rgb(p, q, h - 1 / 3);
+            }
+
+            return {
+                r: Math.round(r * 255),
+                g: Math.round(g * 255),
+                b: Math.round(b * 255)
+            };
+        }
+
+        function rgbToCmyk(r, g, b) {
+            if (r === 0 && g === 0 && b === 0) {
+                return { c: 0, m: 0, y: 0, k: 100 };
+            }
+
+            let rPrime = r / 255;
+            let gPrime = g / 255;
+            let bPrime = b / 255;
+
+            let k = 1 - Math.max(rPrime, gPrime, bPrime);
+            let c = (1 - rPrime - k) / (1 - k);
+            let m = (1 - gPrime - k) / (1 - k);
+            let y = (1 - bPrime - k) / (1 - k);
+
+            return {
+                c: Math.round(c * 100),
+                m: Math.round(m * 100),
+                y: Math.round(y * 100),
+                k: Math.round(k * 100)
+            };
+        }
+
+        function rgbToDecimal(r, g, b) {
+            const pad = (c) => String(c).padStart(3, '0');
+            return `${pad(r)}${pad(g)}${pad(b)}`;
+        }
+
+        function validateHex(rawHex) {
+            let value = rawHex.trim().toUpperCase();
+
+            if (value.startsWith('#')) {
+                value = value.substring(1);
+            }
+
+            if (!/^[0-9A-F]+$/.test(value)) {
+                return null;
+            }
+
+            if (value.length === 3) {
+                const r = value[0];
+                const g = value[1];
+                const b = value[2];
+                value = r + r + g + g + b + b;
+            }
+
+            if (value.length === 6) {
+                return '#' + value;
+            }
+
+            return null;
+        }
+
+        function renderConversionRow(label, code, id) {
+            return `
+                <div class="flex items-center justify-between p-3 rounded-lg border border-gray-200 bg-gray-50">
+                    <span class="font-semibold text-gray-700">${label}:</span>
+                    <code id="${id}" class="code-display text-gray-800 text-sm break-all mx-2">${code}</code>
+                    <button onclick="copyCode(document.getElementById('${id}').textContent, 'Copied ${label}: {code}')" class="copy-btn group hover:text-indigo-600 ml-auto" aria-label="Copy ${label} code">
+                        <svg class="w-5 h-5 text-gray-500 group-hover:text-indigo-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-2M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2m-2 0h2m-2 0h2M18 9a2 2 0 012-2h2a2 2 0 012 2M8 5a2 2 0 002 2h2a2 2 0 002-2m-2 0v2m0 4h.01M16 12h.01M12 12h.01"></path></svg>
+                    </button>
+                </div>
+            `;
+        }
+        
+        function renderSwatch(hex, size) {
+            const widthClass = size === 1 ? 'w-10' : 'w-full';
+            const baseClass = 'flex-shrink-0 rounded-lg shadow-md cursor-pointer transition transform hover:scale-105';
+            const heightClass = size === 1 ? 'h-10' : 'h-16';
+
+            return `
+                <div class="${baseClass} ${widthClass} ${heightClass}" style="background-color: ${hex};" 
+                     data-hex="${hex}" title="${hex}" onclick="copyCode('${hex}', 'Copied Hex: {code}')" aria-label="Copy hex code ${hex}">
+                </div>
+            `;
+        }
+
+        function generateShadesTints(hsl) {
+            tintsContainer.innerHTML = '';
+            shadesContainer.innerHTML = '';
+            const count = 10;
+            const stepL = hsl.l === 100 ? 0 : (100 - hsl.l) / count; 
+            const stepD = hsl.l === 0 ? 0 : hsl.l / count;
+
+            for (let i = 1; i <= count; i++) {
+                const l = Math.min(100, hsl.l + (stepL * i));
+                const rgb = hslToRgb(hsl.h, hsl.s, l);
+                tintsContainer.innerHTML += renderSwatch(rgbToHex(rgb.r, rgb.g, rgb.b), 1);
+            }
+            
+            for (let i = 1; i <= count; i++) {
+                const l = Math.max(0, hsl.l - (stepD * i));
+                const rgb = hslToRgb(hsl.h, hsl.s, l);
+                shadesContainer.innerHTML += renderSwatch(rgbToHex(rgb.r, rgb.g, rgb.b), 1);
+            }
+        }
+        
+        function generatePaletteSets(hsl) {
+            palettesContainer.innerHTML = '';
+            
+            const generateSet = (title, type, baseH) => {
+                let hexCodes = [];
+                hexCodes[2] = rgbToHex(hslToRgb(hsl.h, hsl.s, hsl.l).r, hslToRgb(hsl.h, hsl.s, hsl.l).g, hslToRgb(hsl.h, hsl.s, hsl.l).b);
+
+                const hComp = (baseH + 180) % 360;
+                const h1Analogous = (baseH - 30 + 360) % 360; 
+                const h2Analogous = (baseH + 30) % 360; 
+                const h1Triadic = (baseH + 120) % 360;
+                const h2Triadic = (baseH + 240) % 360;
+
+
+                if (type === 'Monochromatic') {
+                    const L_CHANGE = hsl.l * 0.2;
+                    const S_CHANGE = (100 - hsl.s) * 0.2;
+
+                    hexCodes[0] = rgbToHex(hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE * 2), Math.min(100, hsl.l + L_CHANGE * 2)).r, hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE * 2), Math.min(100, hsl.l + L_CHANGE * 2)).g, hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE * 2), Math.min(100, hsl.l + L_CHANGE * 2)).b);
+                    hexCodes[1] = rgbToHex(hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE), Math.min(100, hsl.l + L_CHANGE)).r, hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE), Math.min(100, hsl.l + L_CHANGE)).g, hslToRgb(baseH, Math.max(0, hsl.s - S_CHANGE), Math.min(100, hsl.l + L_CHANGE)).b);
+
+                    hexCodes[3] = rgbToHex(hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE), Math.max(0, hsl.l - L_CHANGE)).r, hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE), Math.max(0, hsl.l - L_CHANGE)).g, hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE), Math.max(0, hsl.l - L_CHANGE)).b);
+                    hexCodes[4] = rgbToHex(hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE * 2), Math.max(0, hsl.l - L_CHANGE * 2)).r, hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE * 2), Math.max(0, hsl.l - L_CHANGE * 2)).g, hslToRgb(baseH, Math.min(100, hsl.s + S_CHANGE * 2), Math.max(0, hsl.l - L_CHANGE * 2)).b);
+
+                } else if (type === 'Complementary') {
+                    hexCodes[0] = rgbToHex(hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 30)).r, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 30)).g, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 30)).b);
+                    hexCodes[1] = rgbToHex(hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 15)).r, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 15)).g, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 15)).b);
+                    hexCodes[3] = rgbToHex(hslToRgb(hComp, hsl.s, Math.max(20, hsl.l - 10)).r, hslToRgb(hComp, hsl.s, Math.max(20, hsl.l - 10)).g, hslToRgb(hComp, hsl.s, Math.max(20, hsl.l - 10)).b);
+                    hexCodes[4] = rgbToHex(hslToRgb(hComp, hsl.s, Math.min(80, hsl.l + 10)).r, hslToRgb(hComp, hsl.s, Math.min(80, hsl.l + 10)).g, hslToRgb(hComp, hsl.s, Math.min(80, hsl.l + 10)).b);
+
+                } else if (type === 'Analogous') {
+                    hexCodes[0] = rgbToHex(hslToRgb(h1Analogous, hsl.s, hsl.l).r, hslToRgb(h1Analogous, hsl.s, hsl.l).g, hslToRgb(h1Analogous, hsl.s, hsl.l).b);
+                    hexCodes[1] = rgbToHex(hslToRgb((baseH - 15 + 360) % 360, hsl.s, hsl.l).r, hslToRgb((baseH - 15 + 360) % 360, hsl.s, hsl.l).g, hslToRgb((baseH - 15 + 360) % 360, hsl.s, hsl.l).b);
+                    hexCodes[3] = rgbToHex(hslToRgb((baseH + 15) % 360, hsl.s, hsl.l).r, hslToRgb((baseH + 15) % 360, hsl.s, hsl.l).g, hslToRgb((baseH + 15) % 360, hsl.s, hsl.l).b);
+                    hexCodes[4] = rgbToHex(hslToRgb(h2Analogous, hsl.s, hsl.l).r, hslToRgb(h2Analogous, hsl.s, hsl.l).g, hslToRgb(h2Analogous, hsl.s, hsl.l).b);
+
+                } else if (type === 'Triadic') {
+                    hexCodes[0] = rgbToHex(hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 20)).r, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 20)).g, hslToRgb(baseH, hsl.s, Math.min(100, hsl.l + 20)).b);
+                    hexCodes[1] = rgbToHex(hslToRgb(h1Triadic, hsl.s, hsl.l).r, hslToRgb(h1Triadic, hsl.s, hsl.l).g, hslToRgb(h1Triadic, hsl.s, hsl.l).b);
+                    hexCodes[3] = rgbToHex(hslToRgb(h2Triadic, hsl.s, hsl.l).r, hslToRgb(h2Triadic, hsl.s, hsl.l).g, hslToRgb(h2Triadic, hsl.s, hsl.l).b);
+                    hexCodes[4] = rgbToHex(hslToRgb(baseH, hsl.s, Math.max(0, hsl.l - 20)).r, hslToRgb(baseH, hsl.s, Math.max(0, hsl.l - 20)).g, hslToRgb(baseH, hsl.s, Math.max(0, hsl.l - 20)).b);
+                }
+
+                const paletteHtml = `
+                    <div>
+                        <h3 class="font-semibold text-gray-700 mb-3">${title}</h3>
+                        <div class="flex space-x-2">
+                            ${hexCodes.map(hex => renderSwatch(hex, 5)).join('')}
+                        </div>
+                    </div>
+                `;
+                return paletteHtml;
+            }
+
+            palettesContainer.innerHTML += generateSet('Monochromatic', 'Monochromatic', hsl.h);
+            palettesContainer.innerHTML += generateSet('Complementary', 'Complementary', hsl.h);
+            palettesContainer.innerHTML += generateSet('Analogous', 'Analogous', hsl.h);
+            palettesContainer.innerHTML += generateSet('Triadic', 'Triadic', hsl.h);
+        }
+
+        function updateAll(validHex) {
+            const rgb = hexToRgb(validHex);
+            const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+            const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b);
+            const decimal = rgbToDecimal(rgb.r, rgb.g, rgb.b);
+
+            const bodyBgHsl = hslToRgb(hsl.h, Math.max(10, hsl.s * 0.1), Math.min(98, hsl.l + (100 - hsl.l) * 0.5));
+            body.style.backgroundColor = rgbToHex(bodyBgHsl.r, bodyBgHsl.g, bodyBgHsl.b);
+            
+            colorPreview.style.backgroundColor = validHex;
+            hexInput.value = validHex.replace('#', '');
+            
+            const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
+            const isLight = luminance > 0.5;
+
+            const conversionHtml = [
+                renderConversionRow('Hex', validHex, 'hexDisplay'),
+                renderConversionRow('RGB', `rgb(${rgb.r}, ${rgb.g}, ${rgb.b})`, 'rgbDisplay'),
+                renderConversionRow('HSL', `hsl(${hsl.h}, ${hsl.s}%, ${hsl.l}%)`, 'hslDisplay'),
+                renderConversionRow('CMYK', `cmyk(${cmyk.c}%, ${cmyk.m}%, ${cmyk.y}%, ${cmyk.k}%)`, 'cmykDisplay'),
+                renderConversionRow('Decimal', decimal, 'decimalDisplay')
+            ].join('');
+            conversionResults.innerHTML = conversionHtml;
+
+            generateShadesTints(hsl);
+
+            generatePaletteSets(hsl);
+
+            messageContainer.textContent = '';
+            messageContainer.className = 'h-6 text-center text-sm';
+        }
+
+        function updateColorFromInput(rawValue) {
+            const validHex = validateHex(rawValue);
+            
+            if (validHex) {
+                updateAll(validHex);
+                document.getElementById('colorPicker').value = validHex;
+            } else if (rawValue.length > 0 && rawValue.length !== 3 && rawValue.length !== 6) {
+                messageContainer.className = 'h-6 text-center text-sm text-red-600';
+                messageContainer.textContent = 'Invalid length. Use 3 or 6 hex digits.';
+            } else if (rawValue.length > 0) {
+                messageContainer.className = 'h-6 text-center text-sm text-red-600';
+                messageContainer.textContent = 'Invalid characters. Use 0-9 and A-F.';
+            } else {
+                body.style.backgroundColor = '#f3f4f6';
+                colorPreview.style.backgroundColor = '#f3f4f6';
+                conversionResults.innerHTML = '';
+                tintsContainer.innerHTML = '';
+                shadesContainer.innerHTML = '';
+                palettesContainer.innerHTML = '';
+                messageContainer.textContent = '';
+            }
+        }
+
+        function updateColorFromPicker(hexValue) {
+            const rawValue = hexValue.replace('#', '');
+            hexInput.value = rawValue;
+            updateColorFromInput(rawValue);
+        }
+
+        window.onload = () => {
+            hexInput.value = DEFAULT_COLOR.replace('#', '');
+            updateAll(DEFAULT_COLOR);
+        };
+    </script>
+</body>
+</html>
